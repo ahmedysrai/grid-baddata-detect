@@ -4,7 +4,7 @@ version = "0.0.1"
 description = "Bad data and false data injection detection in power system state estimation"
 requires-python = ">=3.10"
 license = "MIT"
-dependencies = ["scipy>=1.10"]
+dependencies = ["numpy>=1.24", "pandapower>=3.5", "pandas>=2.0", "scipy>=1.10"]
 
 [project.optional-dependencies]
 dev = ["pytest", "ruff"]
@@ -19,3 +19,8 @@ line-length = 88
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["src"]
+filterwarnings = [
+    # raised inside pandapower.estimation, not by this package
+    "ignore::DeprecationWarning:pandapower.*",
+    "ignore::pandas.errors.SettingWithCopyWarning",
+]
