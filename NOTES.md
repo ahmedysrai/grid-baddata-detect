@@ -34,3 +34,35 @@ next, so this can be read off as S_ii instead of guessed.
 
 Seed 2 starts from J = 60.7 and flags more of the 5 sd cases, so one seed
 says little about detection rate at small k. Needs a Monte Carlo sweep.
+
+## 2026-11-19
+
+Added S_ii and normalised residuals (src/gridbad/residuals.py), with H
+taken at the estimate. On the full 82-measurement set the S_ii sum to 55
+as they should, and range from 0.282 to 0.958.
+
+The bus 4 P injection is the 0.282, the lowest of all 82, so yesterday's
+guess holds: only 28% of an error on it stays in its own residual.
+Same seed 1 noise, r_N of the measurement that carries the error
+(experiments/gross_error.py):
+
+```
+                      S_ii   r_N at k = 5, 10, 20
+P injection, bus 4   0.282     2.6     5.3*   10.6*
+Q flow, line 2-3     0.854     4.0*    8.7*   17.9*
+V magnitude, bus 14  0.822     4.5*    9.1*   18.1*
+* largest r_N in the set and above 3
+```
+
+For a single error with no noise r_N = k sqrt(S_ii): 5.3 for bus 4 at
+k = 10, which is what came out. The 10 sd bus 4 error that J missed (72.0
+against 73.3) is caught by LNR, and in every case above 3 the flagged
+measurement is the one with the error. With seed 2 the 5 sd bus 4 case
+also flags (3.6), so small k still needs the Monte Carlo sweep.
+
+lnr_identify drops the same Q flow as pandapower's perform_rn_max_test on
+a 20 sd error, then stops with every r_N below 3.
+
+A measurement set with m = n (V everywhere, P at the 13 non-slack buses)
+has every S_ii below 2e-14: all critical, no residual test sees anything
+(tests/test_residuals.py).

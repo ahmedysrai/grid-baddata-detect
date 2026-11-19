@@ -4,7 +4,9 @@
 
 Prints J for the clean (noisy but unbiased) measurement set, then for the
 same noise plus an error of k standard deviations on one measurement,
-against the 95% chi-square threshold.
+against the 95% chi-square threshold. A second table gives the residual
+sensitivity S_ii of each target and its normalised residual r_N, against
+pandapower's default LNR threshold of 3.
 """
 
 import argparse
@@ -18,6 +20,7 @@ import pandas as pd
 
 from gridbad.chi2 import chi2_threshold
 from gridbad.measurements import add_noise, full_measurement_set, load_measurements
+from gridbad.residuals import normalised_residuals, sensitivity_diagonal
 from gridbad.wls import estimate
 
 warnings.filterwarnings("ignore", category=FutureWarning)
@@ -58,17 +61,32 @@ def main():
         & (meas.element == 2),
         "V magnitude, bus 14": (meas.meas_type == "v") & (meas.element == 13),
     }
+    ks = (5, 10, 20)
+    s_ii = sensitivity_diagonal(clean)
+    rn_rows = []
     for name, mask in targets.items():
         idx = meas.index[mask][0]
+        pos = np.flatnonzero(clean.meas_index == idx)[0]
         line = []
-        for k in (5, 10, 20):
+        rn_line = []
+        for k in ks:
             bad = meas.copy()
             bad.loc[idx, "value"] += k * bad.loc[idx, "std_dev"]
             res = run(bad)
             flag = "*" if res.J > thr else " "
             line.append(f"{k:>2} sd: J = {res.J:7.1f}{flag}")
+            rn = normalised_residuals(res)
+            top = "*" if np.nanargmax(rn) == pos and rn[pos] > 3 else " "
+            rn_line.append(f"{rn[pos]:5.1f}{top}")
         print(f"{name:<20} " + "   ".join(line))
+        rn_rows.append(f"{name:<20} {s_ii[pos]:5.3f}   " + "  ".join(rn_line))
     print("* above threshold")
+    print()
+    print(f"{'':<20}  S_ii   r_N at k = " + ", ".join(str(k) for k in ks))
+    for r in rn_rows:
+        print(r)
+    print("* largest r_N in the set and above 3")
+    print(f"S_ii over all {clean.n_meas}: min {s_ii.min():.3f}, max {s_ii.max():.3f}")
 
 
 if __name__ == "__main__":
