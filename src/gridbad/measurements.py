@@ -52,7 +52,11 @@ def add_noise(meas, rng):
 
 
 def load_measurements(net, meas):
-    """Replace the measurement table of `net` with the rows of `meas`."""
+    """Replace the measurement table of `net` with the rows of `meas`.
+
+    Each row keeps its index from `meas`, so estimator results can be
+    traced back to it after rows have been dropped.
+    """
     net.measurement = net.measurement.iloc[0:0]
     for row in meas.itertuples():
         pp.create_measurement(
@@ -63,4 +67,5 @@ def load_measurements(net, meas):
             float(row.std_dev),
             int(row.element),
             row.side,
+            index=row.Index,
         )
