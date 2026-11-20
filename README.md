@@ -14,4 +14,8 @@ pip install -e .[dev]
 python experiments/gross_error.py
 ```
 
+`python experiments/detection_rate.py` repeats this over 200 noise draws
+for a range of error sizes and plots how often each test fires
+(figures/detection_rate.png, about 10 minutes).
+
 NOTES.md has the results so far.

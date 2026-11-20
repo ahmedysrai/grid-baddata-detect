@@ -66,3 +66,36 @@ a 20 sd error, then stops with every r_N below 3.
 A measurement set with m = n (V everywhere, P at the 13 non-slack buses)
 has every S_ii below 2e-14: all critical, no residual test sees anything
 (tests/test_residuals.py).
+
+## 2026-11-20
+
+Monte Carlo sweep over k, 200 noise draws (seed 0), same three targets,
+common noise across tests and targets (experiments/detection_rate.py,
+figures/detection_rate.png). Fraction of trials flagged:
+
+```
+                       k    0     4     6     8    10
+P injection, bus 4  chi2  0.04  0.09  0.20  0.48  0.75
+                    LNR   0.19  0.39  0.72  0.90  0.98
+Q flow, line 2-3    chi2  0.04  0.30  0.75  0.97  1.00
+                    LNR   0.19  0.77  0.99  1.00  1.00
+V magnitude, bus 14 chi2  0.04  0.34  0.81  0.98  1.00
+                    LNR   0.19  0.84  1.00  1.00  1.00
+```
+
+LNR looks better everywhere, but the k = 0 column says the comparison is
+not fair yet. With no bad data at all, max r_N > 3 in 37 of 200 trials.
+That is what 82 roughly independent N(0, 1) residuals give:
+1 - (1 - 0.0027)^82 = 0.20. The chi-square test is at 0.035 here (0.05
+expected, 7 of 200). So LNR at 3 runs at about four times the false alarm
+rate, and part of its lead is just that.
+
+On the bus 4 injection the gap is still large where the false alarms
+cannot explain it: at k = 8, 0.83 of trials have LNR flag the right
+measurement, against 0.48 for chi-square flagging anything. On the other
+two the curves are a couple of sd apart.
+
+To compare at the same false alarm rate, the LNR threshold for 5% overall
+is about 3.42 if the 82 residuals were independent (per-measurement
+two-sided alpha 0.05/82). They are correlated through S, so the real
+value is a little lower; it should come from the k = 0 runs instead.
