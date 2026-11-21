@@ -99,3 +99,42 @@ To compare at the same false alarm rate, the LNR threshold for 5% overall
 is about 3.42 if the 82 residuals were independent (per-measurement
 two-sided alpha 0.05/82). They are correlated through S, so the real
 value is a little lower; it should come from the k = 0 runs instead.
+
+## 2026-11-21
+
+Calibrated both thresholds on 1000 clean noise draws (separate stream from
+the test trials) and reran the sweep at matched false alarm rates
+(experiments/detection_rate.py, figures/detection_rate.png redrawn):
+
+```
+95% point of J(x)     74.1   (chi-square table, 55 dof: 73.3)
+95% point of max r_N  3.45   (Sidak, 82 independent residuals: 3.42)
+```
+
+I expected the empirical LNR value to come out below 3.42, since the
+correlation through S should make the maximum a bit smaller than for
+independent residuals. It came out 0.03 above. With 1000 draws the 95%
+point is not pinned down that finely, so all this says is that the
+correlation effect is small here and the Sidak value is a fair default.
+On the 200 test trials the false alarm rates were 0.030 (chi-square) and
+0.020 (LNR), both a little under 0.05 but within about two binomial
+standard deviations of it.
+
+At matched rates, fraction of trials flagged:
+
+```
+                       k    2     4     6     8    10
+P injection, bus 4  chi2  0.06  0.08  0.17  0.47  0.72
+                    LNR   0.04  0.17  0.47  0.81  0.95
+Q flow, line 2-3    chi2  0.06  0.29  0.73  0.96  1.00
+                    LNR   0.07  0.56  0.97  1.00  1.00
+V magnitude, bus 14 chi2  0.04  0.30  0.79  0.98  1.00
+                    LNR   0.06  0.64  0.98  1.00  1.00
+```
+
+So the lead LNR had on 2026-11-20 holds after the false alarm correction;
+the old numbers at k = 4-6 were inflated, the bus 4 gap is not. Reading the
+0.5 crossing off by linear interpolation, LNR gets there about 1.2 sd
+earlier than chi-square on the flow and voltage, and about 2 sd earlier
+on the bus 4 injection. When LNR fires it nearly
+always names the right measurement (0.79 of 0.81 at k = 8 on bus 4).

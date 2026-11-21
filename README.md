@@ -15,7 +15,8 @@ python experiments/gross_error.py
 ```
 
 `python experiments/detection_rate.py` repeats this over 200 noise draws
-for a range of error sizes and plots how often each test fires
-(figures/detection_rate.png, about 10 minutes).
+for a range of error sizes and plots how often each test fires, with both
+thresholds set to 5% false alarms on a separate set of clean draws
+(figures/detection_rate.png, about 17 minutes).
 
 NOTES.md has the results so far.
