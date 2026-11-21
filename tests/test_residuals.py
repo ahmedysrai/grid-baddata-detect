@@ -4,9 +4,15 @@ import numpy as np
 import pandapower.networks as pn
 import pytest
 from pandapower.estimation.state_estimation import StateEstimation
+from scipy.stats import norm
 
 from gridbad.measurements import add_noise, full_measurement_set, load_measurements
-from gridbad.residuals import lnr_identify, normalised_residuals, sensitivity_diagonal
+from gridbad.residuals import (
+    lnr_identify,
+    normalised_residuals,
+    sensitivity_diagonal,
+    sidak_lnr_threshold,
+)
 from gridbad.wls import estimate
 
 CASE14 = pn.case14()
@@ -86,3 +92,14 @@ def test_lnr_removes_the_bad_measurement_like_pandapower(case14_pf, rng):
     se = StateEstimation(net, tolerance=1e-8, algorithm="wls")
     assert se.perform_rn_max_test()
     assert set(meas.index) - set(net.measurement.index) == {i}
+
+
+def test_sidak_threshold_single_measurement_is_two_sided_quantile():
+    assert sidak_lnr_threshold(1, 0.05) == pytest.approx(1.95996, abs=1e-4)
+
+
+def test_sidak_threshold_matches_independent_false_alarm_rate():
+    t = sidak_lnr_threshold(82, 0.05)
+    p_one = 2 * norm.sf(t)
+    assert 1 - (1 - p_one) ** 82 == pytest.approx(0.05)
+    assert 3.3 < t < 3.5

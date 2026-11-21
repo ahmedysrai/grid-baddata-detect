@@ -15,6 +15,7 @@ error on it.
 """
 
 import numpy as np
+from scipy.stats import norm
 
 from gridbad.measurements import load_measurements
 from gridbad.wls import estimate
@@ -44,6 +45,19 @@ def normalised_residuals(res):
     ok = s_ii > CRITICAL_TOL
     rn[ok] = np.abs(res.residual[ok]) / (res.std[ok] * np.sqrt(s_ii[ok]))
     return rn
+
+
+def sidak_lnr_threshold(n_meas, alpha=0.05):
+    """LNR threshold giving overall false alarm rate `alpha` over `n_meas`.
+
+    If the m normalised residuals were independent N(0, 1), the largest of
+    them stays below t with probability (2 Phi(t) - 1)^m. Setting that to
+    1 - alpha gives a per-measurement two-sided level of
+    1 - (1 - alpha)^(1/m). They are correlated through S, so the true
+    overall rate at this t is a little below `alpha`.
+    """
+    per_meas = 1.0 - (1.0 - alpha) ** (1.0 / n_meas)
+    return norm.isf(per_meas / 2)
 
 
 def lnr_identify(net, meas, threshold=3.0, max_removals=10):
