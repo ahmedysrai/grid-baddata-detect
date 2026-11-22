@@ -138,3 +138,60 @@ the old numbers at k = 4-6 were inflated, the bus 4 gap is not. Reading the
 earlier than chi-square on the flow and voltage, and about 2 sd earlier
 on the bus 4 injection. When LNR fires it nearly
 always names the right measurement (0.79 of 0.81 at k = 8 on bus 4).
+
+## 2026-11-22
+
+Stealthy attack on the bus 14 angle (`experiments/stealthy_attack.py`,
+50 draws, seed 0). The attacker adds c to the estimated angle of bus 14
+and changes every meter that sees it. That is 10 meters: P and Q
+injection at buses 9, 13 and 14, and P and Q at the from end of lines
+9-14 and 13-14. Nothing else in z depends on that one angle.
+
+The size of what it hides is large. At 10 degrees the exact attack moves
+the bus 14 P injection by 105 MW and the flow on 9-14 by 56 MW, against a
+real bus 14 load of 14.9 MW.
+
+First draw, thresholds J 73.3 and max r_N 3.42, clean J 58.0 and max r_N
+2.41:
+
+```
+shift  attack       J   max r_N  angle moved (deg)
+    5  linear    74.7      4.67       4.98
+    5  ac        58.0      2.41       4.99
+    5  random  2843.7     42.16       2.20
+   20  linear  2707.2     47.67      19.07
+   20  ac        57.9      2.42      19.97
+   20  random 50634.2    133.32       1.31
+```
+
+Fraction of draws flagged (chi-square / LNR):
+
+```
+shift      linear           ac       random
+    0  0.02 / 0.02  0.02 / 0.02  0.02 / 0.02
+    1  0.02 / 0.02  0.02 / 0.02  1.00 / 1.00
+    2  0.02 / 0.02  0.02 / 0.02  1.00 / 1.00
+    5  0.26 / 0.26  0.02 / 0.02  1.00 / 1.00
+   10  1.00 / 1.00  0.02 / 0.02  1.00 / 1.00
+   20  1.00 / 1.00  0.02 / 0.02  1.00 / 1.00
+   30  1.00 / 1.00  0.02 / 0.02  1.00 / 1.00
+```
+
+The exact AC attack is invisible to both tests at every size tried, up to
+30 degrees: J and the largest normalised residual stay at their clean
+values to the second decimal and the false alarm rate stays at the clean
+0.02. The DC-style a = H c only holds up to a few degrees on the AC model;
+the second-order terms it leaves out start to show at 5 degrees and it is
+caught every time at 10. The random attack uses the same 10 meters and
+the same weighted size as the AC one, and both tests catch it at 1
+degree. So stealth comes from matching the column space of H, not from
+being small.
+
+On the first try, with 100 draws and a 15 degree step, one attacked
+estimate did not converge and the script stopped. I didn't record which
+attack it was. A failure now counts as flagged, since the operator would
+see it; none happened in the run above.
+
+Next: a detector that does not rely on the residual. A PMU angle at bus
+14 or 9 is the obvious one to try, since none of the 10 attacked meters
+measures an angle directly.
