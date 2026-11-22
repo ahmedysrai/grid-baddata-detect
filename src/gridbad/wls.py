@@ -5,6 +5,7 @@ States are the bus voltage magnitudes and angles, less the slack angle, so
 a network with N buses has n = 2N - 1 states.
 """
 
+from collections.abc import Callable
 from dataclasses import dataclass
 
 import numpy as np
@@ -20,6 +21,8 @@ class WlsResult:
     std: np.ndarray  # measurement standard deviations, per unit, same order
     H: np.ndarray  # Jacobian dh/dx at x_hat, n_meas x n_states
     meas_index: np.ndarray  # row of net.measurement behind each entry of z
+    x: np.ndarray  # state at the estimate: non-slack angles (rad), then all |V|
+    h: Callable[[np.ndarray], np.ndarray]  # h(x) for any state, same order as z
     J: float
     n_meas: int
     n_states: int
@@ -38,7 +41,9 @@ def estimate(net, tolerance=1e-8):
     eppci = se.solver.eppci
     r = eppci.z - se.solver.hx
     s = eppci.r_cov
-    H = BaseAlgebra(eppci).create_hx_jacobian(eppci.E).toarray()
+    algebra = BaseAlgebra(eppci)
+    x = eppci.E.copy()
+    H = algebra.create_hx_jacobian(x).toarray()
     n_buses = len(net.bus)
     return WlsResult(
         vm_pu=net.res_bus_est.vm_pu.to_numpy(),
@@ -47,6 +52,8 @@ def estimate(net, tolerance=1e-8):
         std=s,
         H=H,
         meas_index=np.asarray(se.solver.pp_meas_indices),
+        x=x,
+        h=algebra.create_hx,
         J=float(np.sum((r / s) ** 2)),
         n_meas=len(r),
         n_states=2 * n_buses - 1,
