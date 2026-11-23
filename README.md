@@ -24,4 +24,8 @@ thresholds set to 5% false alarms on a separate set of clean draws
 the linear a = Hc version and a random error of the same size
 (figures/stealthy_attack.png, about 4 minutes).
 
+`python experiments/pmu_check.py` adds one PMU voltage angle, out of the
+attacker's reach, and shows it catches that attack only when it sits on
+bus 14 itself (figures/pmu_check.png, about 3 minutes).
+
 NOTES.md has the results so far.

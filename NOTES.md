@@ -195,3 +195,54 @@ see it; none happened in the run above.
 Next: a detector that does not rely on the residual. A PMU angle at bus
 14 or 9 is the obvious one to try, since none of the 10 attacked meters
 measures an angle directly.
+
+## 2026-11-23
+
+Added one PMU voltage angle to the 82 SCADA meters and reran the exact AC
+attack on the bus 14 angle, with the PMU out of the attacker's reach (its
+entry of a set to zero). PMU noise is 0.2 deg: C37.118.1-2011 says a 0.57
+deg phase error alone uses up the 1% TVE limit, and I took that as about
+3 sd. (experiments/pmu_check.py, 50 draws, about 3 minutes)
+
+First draw, 2 deg shift, PMU at bus 14:
+
+```
+ shift  PMU owned  meters      J   max r_N
+    2  no            10   144.7     9.31
+    2  yes           11    58.6     2.37
+```
+
+Fraction of draws flagged (chi-square / LNR):
+
+```
+shift          no PMU    PMU at bus 9   PMU at bus 14
+    0     0.04 / 0.02     0.04 / 0.04     0.04 / 0.04
+ 0.25     0.04 / 0.02     0.04 / 0.04     0.06 / 0.02
+  0.5     0.04 / 0.02     0.04 / 0.04     0.12 / 0.10
+    1     0.04 / 0.02     0.04 / 0.04     0.50 / 0.78
+    2     0.04 / 0.02     0.04 / 0.04     1.00 / 1.00
+    5     0.04 / 0.04     0.04 / 0.04     1.00 / 1.00
+```
+
+A PMU on the attacked bus works: caught every time from 2 deg, and LNR
+does better than chi-square at 1 deg (0.78 vs 0.50), as expected when all
+the inconsistency sits in one row. If the attacker also owns the PMU it
+is one more meter to write (11 instead of 10) and J goes back to the clean
+value.
+
+A PMU at bus 9 does nothing, even though bus 9 is next to bus 14. The
+attack only moves the bus 14 angle, so h for the bus 9 angle does not
+change and the attacker never has to touch that PMU. So a PMU protects
+the states it measures, not the area around it. (In the chi-square panel
+of figures/pmu_check.png the bus 9 curve sits on top of the no-PMU one.)
+
+The gap below 1 deg is not small in MW terms. On the noise-free estimate
+the AC attack changes the bus 14 P injection by 5.1 MW at 0.5 deg and
+10.1 MW at 1 deg, against a real load of 14.9 MW, and 0.5 deg is caught
+in only about 1 draw in 10. A 1 deg shift is 5 PMU sd, but the
+estimator spreads the conflict over the 10 SCADA meters too, so the PMU
+residual is smaller than the shift.
+
+Next: which buses need a PMU so that no attack on the SCADA meters alone
+can move any state. One PMU per bus is the trivial answer; the question
+is how few will do on case14.
