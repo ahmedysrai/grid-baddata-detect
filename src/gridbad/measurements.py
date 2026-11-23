@@ -11,6 +11,10 @@ import pandas as pd
 # for a first run, not taken from any utility's metering spec.
 STD_VM_PU = 0.004
 STD_POWER = 1.0  # MW or Mvar, i.e. 0.01 pu on the 100 MVA base of case14
+# PMU voltage angle, degrees. IEEE C37.118.1-2011: a phase error of 0.57 deg
+# (0.01 rad) alone gives the 1% total vector error limit. Taking that limit
+# as about 3 sd is an assumption.
+STD_VA_DEG = 0.2
 
 
 def full_measurement_set(net):
@@ -40,6 +44,21 @@ def full_measurement_set(net):
     for i in net.trafo.index:
         rows.append(("p", "trafo", i, "hv", net.res_trafo.p_hv_mw[i], STD_POWER))
         rows.append(("q", "trafo", i, "hv", net.res_trafo.q_hv_mvar[i], STD_POWER))
+    cols = ["meas_type", "element_type", "element", "side", "value", "std_dev"]
+    return pd.DataFrame(rows, columns=cols)
+
+
+def pmu_angle_measurements(net, buses, std_deg=STD_VA_DEG):
+    """Voltage angle at each bus in `buses`, in degrees, as a PMU would
+    report it.
+
+    The angle is taken relative to the slack bus, which the estimator holds
+    at its power flow value. A real PMU measures against a GPS time
+    reference, so this assumes the slack angle is known in that reference
+    too. Same columns as `full_measurement_set`, so the two can be
+    concatenated.
+    """
+    rows = [("va", "bus", b, None, net.res_bus.va_degree[b], std_deg) for b in buses]
     cols = ["meas_type", "element_type", "element", "side", "value", "std_dev"]
     return pd.DataFrame(rows, columns=cols)
 

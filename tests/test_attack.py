@@ -2,6 +2,7 @@ import copy
 
 import numpy as np
 import pandapower.networks as pn
+import pandas as pd
 import pytest
 
 from gridbad.attack import (
@@ -12,7 +13,12 @@ from gridbad.attack import (
     state_position,
 )
 from gridbad.chi2 import chi2_threshold
-from gridbad.measurements import add_noise, full_measurement_set, load_measurements
+from gridbad.measurements import (
+    add_noise,
+    full_measurement_set,
+    load_measurements,
+    pmu_angle_measurements,
+)
 from gridbad.residuals import normalised_residuals
 from gridbad.wls import estimate
 
@@ -88,3 +94,35 @@ def test_slack_angle_is_not_a_state(case14_pf):
     with pytest.raises(ValueError):
         state_position(res, 0, "va")
     assert state_position(res, 0, "vm") == 13
+
+
+def with_pmu(net, buses):
+    return pd.concat(
+        [full_measurement_set(net), pmu_angle_measurements(net, buses)],
+        ignore_index=True,
+    )
+
+
+def test_pmu_on_the_attacked_bus_catches_the_ac_attack(case14_pf, rng):
+    meas = add_noise(with_pmu(case14_pf, [13]), rng)
+    res = run(meas)
+    thr = chi2_threshold(res.n_meas, res.n_states)
+    a = ac_attack(res, angle_shift(res, 13, 5))
+    pmu = np.flatnonzero(res.meas_index == meas.index[-1]).item()
+    assert pmu in meters_touched(a)
+    # attacker owns the PMU as well: still invisible
+    owned = run(apply_attack(meas, res, a, case14_pf.sn_mva))
+    assert owned.J == pytest.approx(res.J, rel=0.01)
+    # PMU left honest: the 5 deg shift is now 25 PMU standard deviations
+    a[pmu] = 0.0
+    honest = run(apply_attack(meas, res, a, case14_pf.sn_mva))
+    assert honest.J > 2 * thr
+
+
+def test_pmu_on_a_neighbour_is_not_touched(case14_pf):
+    meas = with_pmu(case14_pf, [8])
+    res = run(meas)
+    a = ac_attack(res, angle_shift(res, 13, 5))
+    pmu = np.flatnonzero(res.meas_index == meas.index[-1]).item()
+    assert pmu not in meters_touched(a)
+    assert len(meters_touched(a)) == 10

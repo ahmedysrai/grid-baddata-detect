@@ -2,8 +2,15 @@ import copy
 
 import numpy as np
 import pandapower.networks as pn
+import pandas as pd
+import pytest
 
-from gridbad.measurements import add_noise, full_measurement_set, load_measurements
+from gridbad.measurements import (
+    add_noise,
+    full_measurement_set,
+    load_measurements,
+    pmu_angle_measurements,
+)
 from gridbad.wls import estimate
 
 CASE14 = pn.case14()  # building it takes about 0.5 s, a deep copy 10 ms
@@ -26,6 +33,20 @@ def test_noise_free_measurements_give_power_flow_state(case14_pf):
     res = run(full_measurement_set(case14_pf))
     np.testing.assert_allclose(res.vm_pu, case14_pf.res_bus.vm_pu, atol=1e-8)
     np.testing.assert_allclose(res.va_degree, case14_pf.res_bus.va_degree, atol=1e-6)
+    assert res.J < 1e-10
+
+
+def test_pmu_angle_adds_one_row_and_fits_exactly(case14_pf):
+    meas = pd.concat(
+        [full_measurement_set(case14_pf), pmu_angle_measurements(case14_pf, [13])],
+        ignore_index=True,
+    )
+    res = run(meas)
+    assert res.n_meas == 83
+    pos = np.flatnonzero(res.meas_index == meas.index[-1]).item()
+    assert res.h(res.x)[pos] == pytest.approx(
+        np.radians(case14_pf.res_bus.va_degree[13])
+    )
     assert res.J < 1e-10
 
 
