@@ -28,4 +28,9 @@ the linear a = Hc version and a random error of the same size
 attacker's reach, and shows it catches that attack only when it sits on
 bus 14 itself (figures/pmu_check.png, about 3 minutes).
 
+`python experiments/pmu_placement.py` finds how few protected PMUs leave
+no state an attacker can move through the SCADA meters alone. With branch
+currents it takes four, for example on buses 2, 6, 7 and 9
+(figures/pmu_placement.png, about 10 seconds).
+
 NOTES.md has the results so far.

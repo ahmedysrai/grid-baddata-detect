@@ -246,3 +246,47 @@ residual is smaller than the shift.
 Next: which buses need a PMU so that no attack on the SCADA meters alone
 can move any state. One PMU per bus is the trivial answer; the question
 is how few will do on case14.
+
+## 2026-11-24
+
+How few PMUs stop every SCADA-only attack on case14? The attacker owns
+all 82 SCADA meters and none of the PMUs, so it can use any c with
+H_pmu c = 0, where H_pmu is the PMU rows of the Jacobian. A state is
+safe only if every such c leaves it alone (gridbad/placement.py; Bobba et
+al., SCS 2010, show for the DC model that protecting a basic measurement
+set is necessary and sufficient). Brute force over every placement, three
+PMU models (experiments/pmu_placement.py, about 10 s):
+
+```
+PMUs   angle   phasor   currents   best with currents
+   1       1        2         12   {4}
+   2       2        4         20   {4, 6} {4, 13} {6, 9}
+   3       3        6         25   {2, 6, 9}
+   4       4        8         27   {2, 6, 7, 9} {2, 6, 8, 9} {2, 7, 10, 13} +2
+```
+
+(states pinned out of 27, IEEE bus numbers)
+
+An angle-only PMU, like the one on 2026-11-23, pins one state, and a
+voltage phasor two. So with those, protecting everything means a PMU on
+every bus. The branch currents are what make placement worth doing: with
+the line parameters known, the current phasor and the local voltage give
+the voltage at the far end, so each PMU pins its bus and all its
+neighbours. Four PMUs pin all 27 states, five placements do it, and no
+three do.
+
+The tests check that the pinned set from the null space is exactly the
+buses covered by the PMUs and their neighbours, for every placement of
+2 and 3, so the rank result and the graph picture agree here.
+
+The best three, {2, 6, 9}, leave only bus 8 open (its angle and |V|).
+Bus 8 hangs off bus 7 alone. A null direction scaled to 1 deg there has
+|H_pmu c| = 5e-17 and needs 7 SCADA meters written.
+
+This is first order: H_pmu is taken at the power flow state, and
+pandapower's estimator has no current angle measurement (the "ia" rows
+are commented out in its h(x)), so I could not run the AC attack against
+current PMUs the way pmu_check.py does with angles. Bus 7 has no load
+or generator; a zero injection constraint there is something the
+attacker cannot write either, and might bring the count below 4. Not
+tried.
