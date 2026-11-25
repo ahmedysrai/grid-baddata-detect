@@ -30,7 +30,8 @@ bus 14 itself (figures/pmu_check.png, about 3 minutes).
 
 `python experiments/pmu_placement.py` finds how few protected PMUs leave
 no state an attacker can move through the SCADA meters alone. With branch
-currents it takes four, for example on buses 2, 6, 7 and 9
+currents it takes four, for example on buses 2, 6, 7 and 9, or three
+(buses 2, 6 and 9) once the estimator knows that bus 7 has zero injection
 (figures/pmu_placement.png, about 10 seconds).
 
 NOTES.md has the results so far.

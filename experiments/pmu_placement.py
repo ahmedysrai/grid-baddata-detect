@@ -8,8 +8,9 @@ every placement and prints the most states any of them pins, with the
 placements that reach it (IEEE bus numbers, 1-based). Then takes the best
 three-PMU placement with branch currents and shows what is still open:
 the buses whose states can move, and how many SCADA meters an attack in
-that direction has to write. Writes figures/pmu_placement.png. About 10
-seconds with the defaults.
+that direction has to write, and repeats the count with branch currents
+plus the zero injection constraint at bus 7. Writes
+figures/pmu_placement.png. About 10 seconds with the defaults.
 """
 
 import argparse
@@ -31,6 +32,8 @@ from gridbad.placement import (
     best_placements,
     pinned_states,
     pmu_jacobian,
+    zero_injection_buses,
+    zero_injection_jacobian,
 )
 from gridbad.wls import estimate
 
@@ -52,18 +55,21 @@ def main():
     truth = pn.case14()
     pp.runpp(truth, numba=False)
     n_states = 2 * len(truth.bus) - 1
-    counts = {m: [] for m in PMU_MODELS}
+    # (label, PMU model, add zero injection rows)
+    cases = [(m, m, False) for m in PMU_MODELS] + [("currents+ZI", "currents", True)]
+    counts = {label: [] for label, _, _ in cases}
     best3 = None
 
+    print(f"zero injection buses: {ieee(zero_injection_buses(truth))}")
     print(f"states pinned (of {n_states}) by the best placement")
-    for model in PMU_MODELS:
+    for label, model, zi in cases:
         for k in range(1, args.max_pmus + 1):
-            count, placements = best_placements(truth, k, model)
-            counts[model].append(count)
+            count, placements = best_placements(truth, k, model, zero_injection=zi)
+            counts[label].append(count)
             shown = " ".join(ieee(p) for p in placements[:3])
             more = f" and {len(placements) - 3} more" if len(placements) > 3 else ""
-            print(f"{model:<9} {k} PMUs: {count:>2}  {shown}{more}")
-            if model == "currents" and k == 3:
+            print(f"{label:<11} {k} PMUs: {count:>2}  {shown}{more}")
+            if label == "currents" and k == 3:
                 best3 = placements[0]
             if count == n_states:
                 break
@@ -86,11 +92,14 @@ def main():
     print(f"  buses that can still move: {ieee(open_buses)}")
     print(f"  |H_pmu c| = {np.abs(H_pmu @ c).max():.1e} for a 1 deg null direction")
     print(f"  SCADA meters it has to write: {len(meters_touched(a))} of {res.n_meas}")
+    dS = zero_injection_jacobian(truth, zero_injection_buses(truth)) @ c
+    dS_mw = dS * truth.sn_mva
+    print(f"  change in bus 7 P, Q injection: {dS_mw[0]:.2f} MW, {dS_mw[1]:.2f} Mvar")
 
     fig, ax = plt.subplots(figsize=(6, 4))
-    for model in PMU_MODELS:
-        ks = range(1, len(counts[model]) + 1)
-        ax.plot(ks, counts[model], marker="o", label=model)
+    for label, ys in counts.items():
+        ls = "--" if label.endswith("ZI") else "-"
+        ax.plot(range(1, len(ys) + 1), ys, marker="o", ls=ls, label=label)
     ax.axhline(n_states, color="grey", lw=0.8, ls=":")
     ax.set_xlabel("number of protected PMUs")
     ax.set_ylabel(f"states pinned (of {n_states})")

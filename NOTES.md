@@ -290,3 +290,35 @@ current PMUs the way pmu_check.py does with angles. Bus 7 has no load
 or generator; a zero injection constraint there is something the
 attacker cannot write either, and might bring the count below 4. Not
 tried.
+
+## 2026-11-25
+
+Tried the zero injection idea from yesterday. Bus 7 has nothing on it but
+branches (zero_injection_buses finds only bus 7 in case14), so P_7 = Q_7 = 0
+is known whatever the bus 7 meters say. An attacker who writes SCADA but
+not the PMUs now also has to keep those two at zero, which adds two rows
+dS_7/dx to H_pmu before the null space is taken. The rows are checked
+against pandapower's own Jacobian rows for the bus 7 P and Q meters.
+
+```
+PMUs   currents   currents + bus 7 ZI
+   1         12                    14
+   2         20                    22
+   3         25                    27   {2, 6, 9} only
+   4         27
+```
+
+So three PMUs with branch currents are enough, and {2, 6, 9} is the only
+placement of three that does it. The constraint adds exactly two states
+each time, which fits: two equations, and with buses 4, 7 and 9 pinned the
+only unknowns left in S_7 are the angle and |V| of bus 8, the bus that
+hangs off bus 7 alone. The 1 deg direction that was left open yesterday
+moves the bus 7 injection by -11.46 MW and -2.00 Mvar, which the attacker
+cannot hide at a bus where it has to be zero.
+
+Same limit as before: first order, at the power flow state, no AC attack
+run through the estimator. pandapower can add zero injection as a virtual
+measurement (zero_injection= in estimate(), which replaces the bus P and Q
+with 0 and a very small std); gridbad.wls passes None so that every row of
+z is a real meter. Running the bus 8 attack with that on is the obvious
+check.
