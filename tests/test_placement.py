@@ -1,9 +1,18 @@
+import copy
 from itertools import combinations
 
 import numpy as np
 import pytest
 
-from gridbad.placement import best_placements, pinned_states, pmu_jacobian
+from gridbad.measurements import full_measurement_set, load_measurements
+from gridbad.placement import (
+    best_placements,
+    pinned_states,
+    pmu_jacobian,
+    zero_injection_buses,
+    zero_injection_jacobian,
+)
+from gridbad.wls import estimate
 
 N_STATES = 27  # 14 magnitudes, 13 angles
 
@@ -66,3 +75,31 @@ def test_four_current_pmus_needed_on_case14(case14_pf):
 def test_unknown_model_raises(case14_pf):
     with pytest.raises(ValueError):
         pmu_jacobian(case14_pf, [0], "voltage")
+
+
+def test_bus_7_is_the_only_zero_injection_bus(case14_pf):
+    assert zero_injection_buses(case14_pf) == [6]
+
+
+def test_zero_injection_rows_match_estimator_jacobian(case14_pf):
+    # pandapower's own h(x) Jacobian for the bus 7 P and Q meters, taken at a
+    # noise-free estimate, which sits on the power flow state
+    net = copy.deepcopy(case14_pf)
+    meas = full_measurement_set(case14_pf)
+    load_measurements(net, meas)
+    res = estimate(net)
+    rows = meas.loc[res.meas_index]
+    at_bus_7 = (rows.element_type == "bus").to_numpy() & (rows.element == 6).to_numpy()
+    H_p = res.H[at_bus_7 & (rows.meas_type == "p").to_numpy()]
+    H_q = res.H[at_bus_7 & (rows.meas_type == "q").to_numpy()]
+    np.testing.assert_allclose(
+        zero_injection_jacobian(case14_pf, [6]), np.vstack([H_p, H_q]), atol=1e-6
+    )
+
+
+def test_zero_injection_lets_three_current_pmus_pin_everything(case14_pf):
+    best, placements = best_placements(case14_pf, 3, zero_injection=True)
+    assert best == N_STATES
+    # buses 2, 6, 9: without the constraint these leave bus 8 open
+    assert placements == [(1, 5, 8)]
+    assert not pinned(case14_pf, (1, 5, 8), "currents") >= states_of([7])

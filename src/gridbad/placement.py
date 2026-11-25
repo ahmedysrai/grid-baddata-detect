@@ -17,6 +17,12 @@ Three PMU models are compared:
   branch that touches it. With the branch admittances known, that fixes
   the voltage at each neighbour too.
 
+A zero injection bus (no load, generator or shunt) adds two more rows:
+its P and Q injections are known to be zero whatever the meters say, so
+the attacker cannot change them either. These are not measurements and
+not PMUs; `zero_injection_jacobian` gives their rows, and they are stacked
+under H_pmu before the null space is taken.
+
 Current phasors go into H_pmu as real and imaginary parts. The PMU reports
 magnitude and angle; the two forms have the same rank wherever I is
 nonzero, and the rectangular one has simpler derivatives.
@@ -100,6 +106,39 @@ def pmu_jacobian(net, buses, model="currents"):
     return np.array(rows).reshape(-1, len(dV[0]))
 
 
+# elements that make a bus injection nonzero or not known in advance
+INJECTING = ("load", "gen", "sgen", "ext_grid", "shunt", "storage", "ward", "xward")
+
+
+def zero_injection_buses(net):
+    """Buses (0-based) with nothing connected but branches."""
+    used = set()
+    for kind in INJECTING:
+        table = getattr(net, kind, None)
+        if table is not None and len(table):
+            used.update(table.bus[table.in_service].tolist())
+    return [b for b in net.bus.index if b not in used]
+
+
+def zero_injection_jacobian(net, buses):
+    """Rows d Re(S_k)/dx and d Im(S_k)/dx for each bus k in `buses`, at the
+    power flow state, with S_k = V_k conj(I_k) and I = Ybus V. So
+    dS_k = dV_k conj(I_k) + V_k conj(Ybus_k dV).
+    """
+    ppc = _ppc_with_voltages(net)
+    slack = int(net.ext_grid.bus.iloc[0])
+    V = bus_voltages(net)
+    dV = voltage_derivatives(V, slack)
+    Ybus, _, _ = makeYbus(ppc["baseMVA"], ppc["bus"], ppc["branch"])
+    I = Ybus @ V
+    dI = Ybus @ dV
+    rows = []
+    for k in buses:
+        dS = dV[k] * np.conj(I[k]) + V[k] * np.conj(dI[k])
+        rows.extend([np.real(dS), np.imag(dS)])
+    return np.array(rows).reshape(-1, len(dV[0]))
+
+
 def pinned_states(H_pmu, n_states):
     """Boolean mask over the states: True where every c with H_pmu c = 0
     has c_i = 0, so no attack that leaves the PMUs alone can move state i.
@@ -112,16 +151,22 @@ def pinned_states(H_pmu, n_states):
     return np.linalg.norm(N, axis=1) < PIN_TOL
 
 
-def best_placements(net, n_pmus, model="currents"):
+def best_placements(net, n_pmus, model="currents", zero_injection=False):
     """All placements of `n_pmus` PMUs that pin the most states.
 
     Brute force over every subset of buses, which is 1001 subsets for four
-    PMUs on case14. Returns (number of states pinned, list of bus tuples).
+    PMUs on case14. With `zero_injection`, the rows of every zero injection
+    bus are added to each placement. Returns (number of states pinned, list
+    of bus tuples).
     """
     n_states = 2 * len(net.bus) - 1
+    H_zi = np.zeros((0, n_states))
+    if zero_injection:
+        H_zi = zero_injection_jacobian(net, zero_injection_buses(net))
     best, found = -1, []
     for buses in combinations(net.bus.index, n_pmus):
-        count = int(pinned_states(pmu_jacobian(net, buses, model), n_states).sum())
+        H = np.vstack([pmu_jacobian(net, buses, model), H_zi])
+        count = int(pinned_states(H, n_states).sum())
         if count > best:
             best, found = count, [buses]
         elif count == best:
