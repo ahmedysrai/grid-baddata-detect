@@ -20,7 +20,7 @@ class WlsResult:
     residual: np.ndarray  # z - h(x_hat), per unit, in pandapower's internal order
     std: np.ndarray  # measurement standard deviations, per unit, same order
     H: np.ndarray  # Jacobian dh/dx at x_hat, n_meas x n_states
-    meas_index: np.ndarray  # row of net.measurement behind each entry of z
+    meas_index: np.ndarray  # row of net.measurement behind each z entry, -1 virtual
     x: np.ndarray  # state at the estimate: non-slack angles (rad), then all |V|
     h: Callable[[np.ndarray], np.ndarray]  # h(x) for any state, same order as z
     J: float
@@ -28,14 +28,19 @@ class WlsResult:
     n_states: int
 
 
-def estimate(net, tolerance=1e-8):
+def estimate(net, tolerance=1e-8, zero_injection=None):
     """Run WLS on the measurements in `net.measurement` from a flat start.
 
-    No zero-injection constraints are added, so every row in the
-    measurement table is one row of z and nothing else is.
+    By default every row in the measurement table is one row of z and
+    nothing else is. `zero_injection` is a list of bus indices with nothing
+    connected but branches. pandapower then puts P = Q = 0 at those buses
+    into z as virtual measurements with a std of 0.001 pu (its
+    ZERO_INJECTION_STD_DEV), in place of any P and Q meters there. Virtual
+    rows have `meas_index` -1. If the buses already had both meters, m and
+    the m - n degrees of freedom are unchanged.
     """
     se = StateEstimation(net, tolerance=tolerance, algorithm="wls")
-    out = se.estimate(zero_injection=None)
+    out = se.estimate(zero_injection=zero_injection)
     if not out["success"]:
         raise RuntimeError("WLS did not converge")
     eppci = se.solver.eppci

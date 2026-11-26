@@ -65,13 +65,18 @@ def apply_attack(meas, res, a, sn_mva):
     them to injections on the way into z, so their sign flips here. Power
     goes from per unit to MW or Mvar on the base `sn_mva`, angles from
     radians to degrees; voltage magnitudes stay per unit.
+
+    Entries of `a` on virtual rows (zero injection, `meas_index` -1) are
+    dropped: there is no meter to write, the operator knows the value.
     """
-    rows = meas.loc[res.meas_index]
+    real = res.meas_index >= 0
+    a = a[real]
+    rows = meas.loc[res.meas_index[real]]
     power = rows.meas_type.isin(["p", "q"]).to_numpy()
     angle = (rows.meas_type == "va").to_numpy()
     injection = power & (rows.element_type == "bus").to_numpy()
     scale = np.select([power, angle], [sn_mva, np.degrees(1.0)], 1.0)
     scale = scale * np.where(injection, -1.0, 1.0)
     out = meas.copy()
-    out.loc[res.meas_index, "value"] = rows.value.to_numpy() + scale * a
+    out.loc[res.meas_index[real], "value"] = rows.value.to_numpy() + scale * a
     return out

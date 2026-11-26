@@ -76,3 +76,17 @@ def test_gross_error_raises_J(case14_pf, rng):
     # J grows by roughly k^2 times the residual sensitivity of the measurement.
     # experiments/gross_error.py (seed 1) took J from 44 to 373 at k = 20.
     assert run(meas).J > clean + 200
+
+
+def test_zero_injection_replaces_bus_7_meters(case14_pf, rng):
+    # bus 7 (index 6) has only branches; its P and Q rows become virtual
+    meas = add_noise(full_measurement_set(case14_pf), rng)
+    net = copy.deepcopy(CASE14)
+    load_measurements(net, meas)
+    res = estimate(net, zero_injection=[6])
+    assert res.n_meas == 82
+    virtual = res.meas_index == -1
+    assert virtual.sum() == 2
+    np.testing.assert_allclose(res.std[virtual], 0.001)
+    # soft constraint: the fit keeps S_7 within one of its 0.001 pu std
+    assert np.all(np.abs(res.h(res.x)[virtual]) < 0.001)

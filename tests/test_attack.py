@@ -126,3 +126,27 @@ def test_pmu_on_a_neighbour_is_not_touched(case14_pf):
     pmu = np.flatnonzero(res.meas_index == meas.index[-1]).item()
     assert pmu not in meters_touched(a)
     assert len(meters_touched(a)) == 10
+
+
+def run_zi(meas):
+    net = copy.deepcopy(CASE14)
+    load_measurements(net, meas)
+    return estimate(net, zero_injection=[6])
+
+
+def test_zero_injection_catches_the_bus_8_attack(case14_pf, rng):
+    # Bus 8 (index 7) hangs off bus 7 alone, so moving its angle changes
+    # the bus 7 injection, which the attacker cannot write once it is a
+    # virtual zero.
+    meas = add_noise(full_measurement_set(case14_pf), rng)
+    plain = run(meas)
+    a = ac_attack(plain, angle_shift(plain, 7, 2))
+    attacked = run(apply_attack(meas, plain, a, case14_pf.sn_mva))
+    assert attacked.J == pytest.approx(plain.J, rel=0.01)
+
+    res = run_zi(meas)
+    a = ac_attack(res, angle_shift(res, 7, 2))
+    assert np.any(res.meas_index[meters_touched(a)] == -1)
+    attacked = run_zi(apply_attack(meas, res, a, case14_pf.sn_mva))
+    # with the rng fixture (seed 14) J went from 53 to 281 at 2 deg
+    assert attacked.J > 2 * chi2_threshold(res.n_meas, res.n_states)
