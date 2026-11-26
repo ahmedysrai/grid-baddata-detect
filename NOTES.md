@@ -322,3 +322,48 @@ measurement (zero_injection= in estimate(), which replaces the bus P and Q
 with 0 and a very small std); gridbad.wls passes None so that every row of
 z is a real meter. Running the bus 8 attack with that on is the obvious
 check.
+
+## 2026-11-26
+
+Ran the bus 8 attack through the AC estimator, with and without the bus 7
+zero injection. gridbad.wls.estimate now takes zero_injection=[6]; in
+pandapower that does not add rows, it swaps the bus 7 P and Q meters for
+virtual zeros at 0.001 pu. So m stays 82 and the degrees of freedom stay
+55, which I had wrong yesterday (I expected two extra rows). The attacker
+cannot write the virtual rows, so apply_attack skips them.
+
+The attack is the exact AC one on bus 8 only, since with current PMUs on
+{2, 6, 9} that is the only direction left (first order). The PMUs are not
+in z, because pandapower has no current angle rows. 50 noise draws, seed 0,
+thresholds J 73.3 and max r_N 3.42 (experiments/zero_injection_attack.py,
+3 minutes):
+
+```
+shift          plain (chi2 / LNR)   bus 7 ZI (chi2 / LNR)
+none           0.08 / 0.02          0.06 / 0.02
+va 0.25 deg    0.08 / 0.02          0.10 / 0.12
+va 0.5 deg     0.08 / 0.02          0.38 / 0.66
+va 1 deg       0.08 / 0.02          1.00 / 1.00
+vm 0.005 pu    0.08 / 0.02          0.10 / 0.22
+vm 0.01 pu     0.08 / 0.02          0.54 / 0.86
+vm 0.02 pu     0.08 / 0.02          1.00 / 1.00
+```
+
+Without the constraint the attack writes 6 meters (angle) or 7 (|V|) and
+nothing changes. With it, both tests catch every draw from 1 deg or
+0.02 pu. Below that it gets through: 0.25 deg moves the bus 7 injection by
+about 3 MW, going by the 11.46 MW per degree from 11-25.
+
+The J rise is much smaller than the 0.115 pu mismatch would suggest at a
+0.001 pu std (115 sd). The estimator does not keep bus 8 where the
+attacker put it and take the hit on the virtual rows; it moves bus 7 by
+0.47 deg and bus 9 by 0.22 deg (noise-free run, 1 deg attack) to get S_7
+back near zero, and the residual ends up mostly on the 4-7 and 7-9
+transformer flows, then the bus 8 P meter and the 7-8 transformer flow.
+Bus 8 itself goes to 1.21 deg, further than the attack. The virtual P row still has the largest r_N. With
+the PMUs in z, buses 7 and 9 could not drift like that, so I think these
+rates are a lower bound for the {2, 6, 9} placement, but I have not run
+that.
+
+The 0.001 pu virtual std is pandapower's constant, not something chosen
+here.

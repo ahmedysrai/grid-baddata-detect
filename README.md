@@ -34,4 +34,11 @@ currents it takes four, for example on buses 2, 6, 7 and 9, or three
 (buses 2, 6 and 9) once the estimator knows that bus 7 has zero injection
 (figures/pmu_placement.png, about 10 seconds).
 
+`python experiments/zero_injection_attack.py` runs the one attack those
+three PMUs leave open, on the angle and |V| of bus 8, through the
+estimator with and without the bus 7 zero injection. Without it the tests
+fire no more often than on clean data; with it both catch every draw from
+a 1 degree or 0.02 pu shift (figures/zero_injection_attack.png, about 3
+minutes).
+
 NOTES.md has the results so far.
