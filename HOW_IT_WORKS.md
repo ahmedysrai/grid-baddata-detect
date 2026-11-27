@@ -78,8 +78,8 @@ P = Q = 0 there whatever the meters say. Bus 7 is the only one in case14.
 
 ## What is simulated, and where that flatters the method
 
-Everything. The project is simulation based, on one operating point of
-case14 with its standard loads.
+The whole project is simulation based. It uses one operating point of
+case14, with the case's standard loads.
 
 - Meter noise is independent Gaussian with fixed standard deviations:
   0.004 pu for |V| and 1 MW or 1 Mvar for powers. These are assumptions
