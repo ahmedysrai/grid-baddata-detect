@@ -41,4 +41,6 @@ fire no more often than on clean data; with it both catch every draw from
 a 1 degree or 0.02 pu shift (figures/zero_injection_attack.png, about 3
 minutes).
 
-NOTES.md has the results so far.
+HOW_IT_WORKS.md explains the method, what the simulation assumes and
+where that flatters the results. NOTES.md has the dated log behind every
+number.
